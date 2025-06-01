@@ -1,17 +1,19 @@
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtWidgets, QtCore
+from db.db import get_connection
 
 
-class Ui_LogWindow(object):
-    def setupUi(self, LogWindow):
-        LogWindow.setObjectName("LogWindow")
-        LogWindow.resize(1000, 600)
-        LogWindow.setWindowTitle("Журнал действий")
-        LogWindow.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
-        LogWindow.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
+class LogWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Журнал действий")
+        self.resize(1000, 600)
+        self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        self.centralwidget = QtWidgets.QWidget(LogWindow)
-        LogWindow.setCentralWidget(self.centralwidget)
+        self.centralwidget = QtWidgets.QWidget(self)
+        self.setCentralWidget(self.centralwidget)
 
+        # Основной фон
         self.background = QtWidgets.QFrame(self.centralwidget)
         self.background.setGeometry(0, 0, 1000, 600)
         self.background.setStyleSheet("""
@@ -22,52 +24,18 @@ class Ui_LogWindow(object):
             }
         """)
 
-        # ✕ Кнопка
-        self.exit_button = QtWidgets.QPushButton(parent=LogWindow)
-        self.exit_button.setGeometry(QtCore.QRect(960, 10, 30, 30))
-        self.exit_button.setText("✕")
-        self.exit_button.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                font-size: 18px;
-                color: white;
-            }
-            QPushButton:hover {
-                color: #ffdddd;
-            }
-        """)
-        self.exit_button.clicked.connect(LogWindow.close)
-
-        # ← Назад
-        self.back_button = QtWidgets.QPushButton("←", self.background)
-        self.back_button.setGeometry(30, 540, 60, 40)
-        self.back_button.setStyleSheet("""
-            QPushButton {
-                background-color: white;
-                color: #333;
-                font-size: 14px;
-                border-radius: 20px;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-            }
-        """)
-        self.back_button.clicked.connect(LogWindow.close)
-
         # Заголовок
-        self.title_label = QtWidgets.QLabel(self.background)
+        self.title_label = QtWidgets.QLabel("Журнал действий пользователей", self.background)
         self.title_label.setGeometry(30, 20, 600, 40)
-        self.title_label.setText("Журнал действий пользователей")
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: white;")
 
-        # Панель фильтрации
+        # Фильтрация
         self.filter_frame = QtWidgets.QFrame(self.background)
         self.filter_frame.setGeometry(30, 70, 940, 60)
         self.filter_frame.setStyleSheet("background-color: rgba(255,255,255,0.9); border-radius: 10px;")
 
         self.user_input = QtWidgets.QLineEdit(self.filter_frame)
-        self.user_input.setPlaceholderText("Поиск по ФИО / логину")
+        self.user_input.setPlaceholderText("Поиск по логину / описанию")
         self.user_input.setGeometry(20, 10, 250, 40)
 
         self.action_combo = QtWidgets.QComboBox(self.filter_frame)
@@ -88,14 +56,14 @@ class Ui_LogWindow(object):
             }
         """)
 
-        # Таблица логов
-        self.log_table = QtWidgets.QTableWidget(self.background)
-        self.log_table.setGeometry(30, 150, 940, 360)
-        self.log_table.setColumnCount(4)
-        self.log_table.setHorizontalHeaderLabels(["Дата", "Пользователь", "Действие", "Описание"])
-        self.log_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.log_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.log_table.setStyleSheet("""
+        # Таблица
+        self.table = QtWidgets.QTableWidget(self.background)
+        self.table.setGeometry(30, 150, 940, 360)
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Дата", "Пользователь", "Действие", "Описание"])
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setStyleSheet("""
             QTableWidget {
                 background-color: white;
                 border-radius: 10px;
@@ -108,48 +76,67 @@ class Ui_LogWindow(object):
             }
         """)
 
+        # Назад
+        self.back_button = QtWidgets.QPushButton("← Назад", self.background)
+        self.back_button.setGeometry(30, 540, 100, 40)
+        self.back_button.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                color: #333;
+                font-size: 14px;
+                border-radius: 20px;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+            }
+        """)
+        self.back_button.clicked.connect(self.close)
 
-from PyQt6 import QtCore, QtWidgets
-from db.db import get_connection
+        # ✕ Закрыть
+        self.exit_button = QtWidgets.QPushButton("✕", self)
+        self.exit_button.setGeometry(960, 10, 30, 30)
+        self.exit_button.setStyleSheet("""
+            QPushButton {
+                background: none;
+                border: none;
+                font-size: 18px;
+                color: white;
+            }
+            QPushButton:hover {
+                color: #ffdddd;
+            }
+        """)
+        self.exit_button.clicked.connect(self.close)
 
-
-class LogWindow(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.ui = Ui_LogWindow()
-        self.ui.setupUi(self)
+        # Логика
+        self.setup_table()
         self.setup_connections()
         self.load_logs()
-        self.setup_table()
 
     def setup_connections(self):
-        """Подключение сигналов"""
-        self.ui.search_button.clicked.connect(self.apply_filters)
-        self.ui.user_input.textChanged.connect(self.apply_filters)
-        self.ui.action_combo.currentIndexChanged.connect(self.apply_filters)
+        self.search_button.clicked.connect(self.apply_filters)
+        self.user_input.textChanged.connect(self.apply_filters)
+        self.action_combo.currentIndexChanged.connect(self.apply_filters)
 
     def setup_table(self):
-        """Настройка таблицы"""
-        self.ui.log_table.setColumnWidth(0, 150)  # Дата
-        self.ui.log_table.setColumnWidth(1, 200)  # Пользователь
-        self.ui.log_table.setColumnWidth(2, 150)  # Действие
-        self.ui.log_table.setColumnWidth(3, 400)  # Описание
+        self.table.setColumnWidth(0, 150)  # Дата
+        self.table.setColumnWidth(1, 200)  # Пользователь
+        self.table.setColumnWidth(2, 150)  # Действие
+        self.table.setColumnWidth(3, 400)  # Описание
 
     def load_logs(self):
-        """Загрузка логов из БД"""
         connection = get_connection()
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
                     SELECT 
-                        l.log_date,
+                        l.created_at,
                         u.login,
                         l.action,
-                        e.full_name as employee_name
+                        l.description
                     FROM logs l
                     LEFT JOIN users u ON l.user_id = u.id
-                    LEFT JOIN employees e ON l.employee_id = e.id
-                    ORDER BY l.log_date DESC
+                    ORDER BY l.created_at DESC
                 """)
                 self.all_logs = cursor.fetchall()
                 self.apply_filters()
@@ -159,22 +146,19 @@ class LogWindow(QtWidgets.QMainWindow):
             connection.close()
 
     def apply_filters(self):
-        """Применение фильтров"""
-        search_text = self.ui.user_input.text().lower()
-        action_filter = self.ui.action_combo.currentText()
+        search_text = self.user_input.text().lower()
+        action_filter = self.action_combo.currentText()
 
         filtered = []
 
         for log in self.all_logs:
-            # Фильтр по тексту
             if search_text:
-                if (search_text not in log["login"].lower() and
-                        search_text not in (log["employee_name"] or "").lower()):
+                if (search_text not in (log["username"] or "").lower() and
+                        search_text not in (log["description"] or "").lower()):
                     continue
 
-            # Фильтр по действию
             if action_filter != "Все действия":
-                if action_filter not in log["action"]:
+                if action_filter.lower() not in (log["action"] or "").lower():
                     continue
 
             filtered.append(log)
@@ -182,32 +166,21 @@ class LogWindow(QtWidgets.QMainWindow):
         self.update_table(filtered)
 
     def update_table(self, logs):
-        """Обновление таблицы"""
-        self.ui.log_table.setRowCount(0)
+        self.table.setRowCount(0)
 
         for row_idx, log in enumerate(logs):
-            self.ui.log_table.insertRow(row_idx)
+            self.table.insertRow(row_idx)
+            created_at = log["created_at"].strftime("%d.%m.%Y %H:%M")
+            self.table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(created_at))
+            self.table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(log["username"] or "Система"))
+            self.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(log["action"]))
+            self.table.setItem(row_idx, 3, QtWidgets.QTableWidgetItem(log["description"] or "-"))
 
-            # Форматирование даты
-            log_date = log["log_date"].strftime("%d.%m.%Y %H:%M")
 
-            # Формирование описания
-            description = log["action"]
-            if log["employee_name"]:
-                description += f" ({log['employee_name']})"
-
-            self.ui.log_table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(log_date))
-            self.ui.log_table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(log["login"] or "Система"))
-            self.ui.log_table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(log["action"]))
-            self.ui.log_table.setItem(row_idx, 3, QtWidgets.QTableWidgetItem(description))
-
+# Тестовый запуск
 if __name__ == "__main__":
     import sys
-
     app = QtWidgets.QApplication(sys.argv)
     window = LogWindow()
     window.show()
     sys.exit(app.exec())
-
-
-

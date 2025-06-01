@@ -1,8 +1,17 @@
 from PyQt6 import QtWidgets, QtCore
 import pymysql
 
+class HRMainWindow(QtWidgets.QMainWindow):
+    def __init__(self, user_id):
+        super().__init__()
+        self.user_id = user_id
+        self.ui = Ui_HRMainWindow()
+        self.ui.setupUi(self, full_name="HR", user_id=user_id)
+
+
 class Ui_HRMainWindow(object):
-    def setupUi(self, HRMainWindow, full_name="HR-специалист"):
+    def setupUi(self, HRMainWindow, full_name="HR", user_id=None):
+        self.user_id = user_id
         HRMainWindow.setObjectName("HRMainWindow")
         HRMainWindow.resize(1000, 600)
         HRMainWindow.setWindowTitle("HR Панель")
@@ -58,7 +67,7 @@ class Ui_HRMainWindow(object):
         self.exit_button = QtWidgets.QPushButton(parent=HRMainWindow)
         self.exit_button.setGeometry(QtCore.QRect(960, 10, 30, 30))
         self.exit_button.setObjectName("exit_button")
-        self.exit_button.setText("\u2715")
+        self.exit_button.setText("✕")
         self.exit_button.setStyleSheet("""
             QPushButton {
                 background: none;
@@ -126,20 +135,11 @@ class Ui_HRMainWindow(object):
             return 0, 0, 0, 0
 
     def open_employees(self):
-        from ui.employee_window import EmployeeWindow
-        self.employee_window = EmployeeWindow()
+        from ui.employee_window import EmployeeCardWindow
+        self.employee_window = EmployeeCardWindow(current_user_id=self.user_id)
         self.employee_window.show()
 
     def open_vacancies(self):
         from ui.vacancy_window import VacancyWindow
         self.vacancy_window = VacancyWindow()
         self.vacancy_window.show()
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    window = QtWidgets.QMainWindow()
-    ui = Ui_HRMainWindow()
-    ui.setupUi(window, full_name="Иванова Елена")
-    window.show()
-    sys.exit(app.exec())

@@ -1,5 +1,6 @@
 from PyQt6 import QtCore, QtWidgets
 from logic.auto_func import register_user
+import pymysql
 
 class Ui_registration_widget(object):
     def setupUi(self, registration_widget, parent_stack=None, parent_window=None):
@@ -42,7 +43,6 @@ class Ui_registration_widget(object):
 
         self.role_combo = QtWidgets.QComboBox(parent=registration_widget)
         self.role_combo.setGeometry(QtCore.QRect(100, 270, 200, 45))
-        self.role_combo.addItems(["HR", "Foreman", "SafetyEngineer", "Admin"])
 
         self.register_button = QtWidgets.QPushButton("Зарегистрироваться", parent=registration_widget)
         self.register_button.setGeometry(QtCore.QRect(120, 340, 160, 50))
@@ -77,19 +77,20 @@ class Ui_registration_widget(object):
         """)
 
         QtCore.QMetaObject.connectSlotsByName(registration_widget)
-
+        self.showcombo()
 
     def try_register(self):
         login = self.login_input.text().strip()
         password = self.password_input.text().strip()
         full_name = self.fullname_input.text().strip()
-        role = self.role_combo.currentText()
+        role_id = self.role_combo.currentData()  # 👈 получаем сохранённый role_id
+
 
         if not login or not password or not full_name:
             QtWidgets.QMessageBox.warning(None, "Ошибка", "Заполните все поля.")
             return
 
-        success = register_user(login, password, role, full_name)
+        success = register_user(login, password, role_id, full_name)
         if success:
             QtWidgets.QMessageBox.information(None, "Успех", "Пользователь зарегистрирован.")
             if self.parent_stack:
@@ -101,7 +102,26 @@ class Ui_registration_widget(object):
         if self.parent_stack:
             self.parent_stack.setCurrentIndex(0)  # Авторизация
 
-
+    def showcombo(self):
+        try:
+            con = pymysql.connect(
+                host="localhost",
+                user="root",
+                password="",
+                database="diplom",
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=True,
+                port=3312
+            )
+            cur = con.cursor()
+            cur.execute("SELECT id, name FROM roles")
+            roles = cur.fetchall()
+            self.role_combo.clear()
+            for role in roles:
+                self.role_combo.addItem(role["name"], role["id"])  # 👈 сохранить и текст, и ID
+            con.close()
+        except Exception as e:
+            print("[Ошибка showcombo]:", e)
 
 
 if __name__ == "__main__":

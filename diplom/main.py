@@ -3,11 +3,9 @@ from PyQt6 import QtWidgets
 from ui.vhod import Ui_login_widget
 from ui.registration_window import Ui_registration_widget
 from ui.password_reset_window import Ui_PasswordResetWindow
-
-from ui.hr_main_window import Ui_HRMainWindow
-
+from ui.admin_main_window import Ui_AdminMainWindow
+from ui.hr_main_window import HRMainWindow
 import pymysql
-import hashlib
 
 class LoginWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -29,48 +27,41 @@ class LoginWindow(QtWidgets.QMainWindow):
         self.hide()
 
     def show_main_window(self):
-        login = self.ui.login_email_input.text()
-        password = self.ui.login_password_input.text()  # Исправлено имя поля
+        login = self.ui.login_email_input.text().strip()
+        password = self.ui.login_password_input.text().strip()
 
         try:
             con = pymysql.connect(host="localhost", user="root", password="",
                                   database="diplom", port=3312)
             cur = con.cursor()
-
-            sql = "SELECT password_hash, role FROM users WHERE login = %s"
-            cur.execute(sql, (login,))
+            cur.execute("SELECT id, password_hash, role FROM users WHERE login = %s", (login,))
             result = cur.fetchone()
 
             if not result:
                 QtWidgets.QMessageBox.warning(self, "Ошибка", "Неверный логин или пароль")
                 return
 
-            stored_hash, role = result  # Распаковываем кортеж
+            user_id, stored_hash, role = result
 
-            # Хэшируем введенный пароль
-            input_hash = hashlib.sha256(password.encode()).hexdigest()
-
-            if input_hash != stored_hash:
+            if password != stored_hash:
                 QtWidgets.QMessageBox.warning(self, "Ошибка", "Неверный логин или пароль")
                 return
 
-            # Открываем окно в зависимости от роли
-            if role == "hr":
-                window = HR_Window()
-            # elif role == 2:
-            #     window = Fore_Window()
-            # elif role == 3:
-            #     window = Saf_Window()
-            # elif role == 4:
-            #     window = Adm_Window()
+            # Логирование входа
+            from utils.logger import log_action
+            log_action(user_id=user_id, action="Вход", description=f"Пользователь с ID {user_id} вошёл в систему")
+
+            # Открытие окна по роли
+            if role == 3:  # HR
+                self.current_window = HRMainWindow(user_id=user_id)
+            elif role == 1:  # Admin
+                self.current_window = Adm_Window()
             else:
                 QtWidgets.QMessageBox.warning(self, "Ошибка", "Неизвестная роль")
                 return
 
-            self.current_window = window  # Сохраняем ссылку
-            self.hide()
             self.current_window.show()
-
+            self.hide()
             con.close()
 
         except Exception as e:
@@ -103,10 +94,11 @@ class PasswordResetWindow(QtWidgets.QMainWindow):
         self.parent_window.show()
         self.close()
 
-class HR_Window(QtWidgets.QMainWindow):
+
+class Adm_Window(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.ui = Ui_HRMainWindow()
+        self.ui = Ui_AdminMainWindow()
         self.ui.setupUi(self)
         self.ui.exit_btn.clicked.connect(self.return_to_login)
 
@@ -115,49 +107,10 @@ class HR_Window(QtWidgets.QMainWindow):
         self.parent_window.show()
         self.close()
 
-# class Fore_Window(QtWidgets.QMainWindow):
-#     def __init__(self):
-#         super().__init__()
-#         self.ui = Ui_ForemanMainWindow()
-#         self.ui.setupUi(self)
-#         self.ui.exit_btn.clicked.connect(self.return_to_login)
-#
-#     def return_to_login(self):
-#         self.parent_window = LoginWindow()
-#         self.parent_window.show()
-#         self.close()
-
-# class Saf_Window(QtWidgets.QMainWindow):
-#     def __init__(self):
-#         super().__init__()
-#         self.ui = Ui_SafetyMainWindow()
-#         self.ui.setupUi(self)
-#         self.ui.exit_btn.clicked.connect(self.return_to_login)
-
-    # def return_to_login(self):
-    #     self.parent_window = LoginWindow()
-    #     self.parent_window.show()
-    #     self.close()
-
-# class Adm_Window(QtWidgets.QMainWindow):
-#     def __init__(self):
-#         super().__init__()
-#         self.ui = Ui_AdminMainWindow()
-#         self.ui.setupUi(self)
-#         self.ui.exit_btn.clicked.connect(self.return_to_login)
-
-    # def return_to_login(self):
-    #     self.parent_window = LoginWindow()
-    #     self.parent_window.show()
-    #     self.close()
-
 
 if __name__ == "__main__":
     import sys
-
     app = QtWidgets.QApplication(sys.argv)
-
     login_window = LoginWindow()
     login_window.show()
-
     sys.exit(app.exec())

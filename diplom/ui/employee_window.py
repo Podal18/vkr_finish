@@ -1,214 +1,157 @@
-from PyQt6 import QtCore, QtWidgets
-from logic.employee_func import get_all_employees
-from logic.employee_func import add_employee, load_employee_profile, get_all_professions
-from ui.add_edit_employee import Ui_AddEditEmployeeWindow
-from logic import employee_func
-from ui.employee_profile import Ui_EmployeeProfileWindow
+from PyQt6 import QtWidgets, QtCore, QtGui
+import pymysql
+import random
+import os
 
-
-class Ui_EmployeeWindow(object):
-    def setupUi(self, EmployeeWindow):
-        EmployeeWindow.setObjectName("EmployeeWindow")
-        EmployeeWindow.resize(1000, 600)
-        EmployeeWindow.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
-        EmployeeWindow.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
-
-        self.centralwidget = QtWidgets.QWidget(EmployeeWindow)
-        EmployeeWindow.setCentralWidget(self.centralwidget)
-
-        self.background = QtWidgets.QFrame(self.centralwidget)
-        self.background.setGeometry(0, 0, 1000, 600)
-        self.background.setStyleSheet("""
-            QFrame {
+class EmployeeCardWindow(QtWidgets.QWidget):
+    def __init__(self, current_user_id):
+        super().__init__()
+        self.current_user_id = current_user_id
+        self.setWindowTitle("Сотрудники")
+        self.resize(900, 600)
+        self.setStyleSheet("""
+            QWidget {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #fdfbfb, stop:1 #ebedee);
-                border-radius: 10px;
+                    stop:0 #ff9a9e, stop:1 #fad0c4);
             }
         """)
 
-        self.exit_button = QtWidgets.QPushButton(parent=EmployeeWindow)
-        self.exit_button.setGeometry(QtCore.QRect(960, 10, 30, 30))
-        self.exit_button.setText("✕")
-        self.exit_button.setStyleSheet("""
-            QPushButton {
-                background: none;
-                border: none;
-                font-size: 18px;
-                color: #444;
-            }
-            QPushButton:hover {
-                color: red;
-            }
-        """)
-        self.exit_button.clicked.connect(EmployeeWindow.close)
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.sort_box = QtWidgets.QComboBox()
+        self.sort_box.addItems(["Сортировать по шансу (по убыванию)", "Сортировать по шансу (по возрастанию)"])
+        self.sort_box.currentIndexChanged.connect(self.load_employees)
+        self.layout.addWidget(self.sort_box)
 
-        self.title_label = QtWidgets.QLabel(self.background)
-        self.title_label.setGeometry(30, 20, 600, 40)
-        self.title_label.setText("Сотрудники")
-        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #333;")
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.container = QtWidgets.QWidget()
+        self.card_layout = QtWidgets.QVBoxLayout(self.container)
+        self.card_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.scroll_area.setWidget(self.container)
+        self.layout.addWidget(self.scroll_area)
 
-        self.employee_table = QtWidgets.QTableWidget(self.background)
-        self.employee_table.setGeometry(30, 80, 940, 380)
-        self.employee_table.setColumnCount(6)
-        self.employee_table.setHorizontalHeaderLabels([
-            "ФИО", "Профессия", "Объект", "Статус", "Документы", "Действия"
-        ])
-        self.employee_table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.employee_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.employee_table.setStyleSheet("""
-            QTableWidget {
-                background-color: white;
-                border-radius: 10px;
-            }
-            QHeaderView::section {
-                background-color: #c0c0ff;
-                padding: 4px;
-                font-weight: bold;
-                border: 1px solid white;
-            }
-        """)
-        self.employee_table.setColumnCount(7)
-        self.employee_table.setHorizontalHeaderLabels([
-            "ID", "ФИО", "Профессия", "Объект", "Статус", "Документы", "Действия"
-        ])
-        self.employee_table.setColumnHidden(0, True)
+        self.back_btn = self.create_button("🔙 Назад", "#b0c4de")
+        self.back_btn.clicked.connect(self.close)
+        self.layout.addWidget(self.back_btn)
 
-        # Кнопки
-        self.add_button = QtWidgets.QPushButton("➕ Добавить", self.background)
-        self.add_button.setGeometry(100, 480, 160, 50)
-        self.add_button.clicked.connect(self.open_add_employee_window)
-
-        self.edit_button = QtWidgets.QPushButton("✏️ Изменить", self.background)
-        self.edit_button.setGeometry(280, 480, 160, 50)
-        self.edit_button.clicked.connect(self.open_edit_employee_window)
-
-        self.fire_button = QtWidgets.QPushButton("🟥 Уволить", self.background)
-        self.fire_button.setGeometry(460, 480, 160, 50)
-        self.fire_button.clicked.connect(self.fire_employee)
-
-        self.profile_button = QtWidgets.QPushButton("📄 Профиль", self.background)
-        self.profile_button.setGeometry(640, 480, 160, 50)
-        self.profile_button.clicked.connect(self.open_profile)
-
-        for btn in [self.add_button, self.edit_button, self.fire_button, self.profile_button]:
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #c0c0ff;
-                    color: white;
-                    border-radius: 20px;
-                    font-size: 15px;
-                }
-                QPushButton:hover {
-                    background-color: #9999ff;
-                }
-            """)
-
-        self.load_employees()  # ← загружаем сотрудников из БД
-
-    def load_employees(self):
-        employees = get_all_employees()
-        self.employee_table.setRowCount(0)
-
-        for row_idx, emp in enumerate(employees):
-            self.employee_table.insertRow(row_idx)
-            self.employee_table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(str(emp["id"])))
-            self.employee_table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(emp["full_name"]))
-            self.employee_table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(emp["profession"]))
-            self.employee_table.setItem(row_idx, 3, QtWidgets.QTableWidgetItem("-"))  # объект
-            self.employee_table.setItem(row_idx, 4, QtWidgets.QTableWidgetItem(emp["status"]))
-            self.employee_table.setItem(row_idx, 5, QtWidgets.QTableWidgetItem("Документы"))
-            self.employee_table.setItem(row_idx, 6, QtWidgets.QTableWidgetItem("..."))
-
-
-
-    def open_add_employee_window(self):
-        self.add_window = QtWidgets.QMainWindow()
-        self.add_ui = Ui_AddEditEmployeeWindow()
-        self.add_ui.setupUi(self.add_window, mode="add")
-
-        try:
-            self.add_ui.save_button.clicked.disconnect()
-        except TypeError:
-            pass  # Игнорируем ошибку, если сигнал не был подключен
-
-            # Загружаем профессии и заполняем комбобокс
-        self.add_ui.profession_map = {}
-
-
-        self.add_ui.save_button.clicked.connect(self.save_new_employee)
-
-        self.add_window.show()
-
-    def save_new_employee(self):
-        full_name = self.add_ui.fullname_input.text()
-        birth_date = self.add_ui.birthdate_input.date().toString("yyyy-MM-dd")
-        profession = self.add_ui.profession_combo.currentText()
-
-        if not full_name or not profession:
-            QtWidgets.QMessageBox.warning(self.add_window, "Ошибка", "Заполните все поля.")
-            return
-        profession_id = self.add_ui.profession_map.get(profession)
-
-
-        add_employee(full_name, birth_date, profession_id, 1)
-        QtWidgets.QMessageBox.information(self.add_window, "Готово", "Сотрудник добавлен.")
-        self.add_window.close()
         self.load_employees()
 
-    def open_edit_employee_window(self):
-        selected = self.employee_table.currentRow()
-        if selected < 0:
-            QtWidgets.QMessageBox.warning(None, "Ошибка", "Выберите сотрудника для редактирования.")
-            return
+    def create_button(self, text, color):
+        btn = QtWidgets.QPushButton(text)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {color};
+                border: none;
+                border-radius: 20px;
+                color: white;
+                font-size: 14px;
+                padding: 10px 20px;
+            }}
+            QPushButton:hover {{
+                background-color: #ff6f61;
+            }}
+        """)
+        return btn
 
-        emp_id = int(self.employee_table.item(selected, 0).text())
+    def load_employees(self):
+        self.clear_layout(self.card_layout)
 
-        self.edit_window = QtWidgets.QMainWindow()
-        self.edit_ui = Ui_AddEditEmployeeWindow()
-        self.edit_ui.setupUi(self.edit_window, mode="edit", employee_id=emp_id)
-        self.edit_ui.save_button.clicked.connect(self.load_employees)
-        self.edit_window.show()
+        conn = pymysql.connect(
+            host="localhost",
+            user="root",
+            password="",
+            database="diplom",
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+            port=3312
+        )
 
-    def fire_employee(self):
-        selected = self.employee_table.currentRow()
-        if selected < 0:
-            QtWidgets.QMessageBox.warning(None, "Внимание", "Выберите сотрудника для увольнения.")
-            return
-        emp_id = self.employee_table.item(selected, 0).text()
-        confirm = QtWidgets.QMessageBox.question(None, "Подтверждение", "Уволить выбранного сотрудника?",
-                                                 QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
-        if confirm == QtWidgets.QMessageBox.StandardButton.Yes:
-            success = employee_func.fire_employee(emp_id)
-            self.load_employees()
-            QtWidgets.QMessageBox.critical(None, "Успешно", "Сотрудник уволен.")
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM employees WHERE is_active = 1")
+                employees = cursor.fetchall()
 
-    def open_profile(self):
-        selected = self.employee_table.currentRow()
-        if selected < 0:
-            QtWidgets.QMessageBox.warning(None, "Внимание", "Выберите сотрудника для просмотра профиля.")
-            return
+                for emp in employees:
+                    emp["fire_chance"] = random.randint(0, 100)
 
-        emp_id = self.employee_table.item(selected, 0).text()
+                if self.sort_box.currentIndex() == 0:
+                    employees.sort(key=lambda x: x["fire_chance"], reverse=True)
+                else:
+                    employees.sort(key=lambda x: x["fire_chance"])
 
-        self.profile_window = QtWidgets.QMainWindow()
-        self.profile_ui = Ui_EmployeeProfileWindow()
-        self.profile_ui.setupUi(self.profile_window)
-        load_employee_profile(self.profile_ui, emp_id)
-        self.profile_window.show()
+                for emp in employees:
+                    self.add_employee_card(emp)
 
-class EmployeeWindow(QtWidgets.QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.ui = Ui_EmployeeWindow()
-        self.ui.setupUi(self)
-        self.ui.load_employees()
+    def add_employee_card(self, emp):
+        card = QtWidgets.QFrame()
+        card.setFixedHeight(150)
+        card.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border-radius: 15px;
+                margin: 10px;
+            }
+        """)
+        h_layout = QtWidgets.QHBoxLayout(card)
+
+        photo_label = QtWidgets.QLabel()
+        photo_label.setFixedSize(100, 100)
+        if emp["photo_path"] and os.path.exists(emp["photo_path"]):
+            pixmap = QtGui.QPixmap(emp["photo_path"]).scaled(100, 100, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+            photo_label.setPixmap(pixmap)
+        else:
+            photo_label.setText("Нет фото")
+            photo_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        h_layout.addWidget(photo_label)
+
+        info_layout = QtWidgets.QVBoxLayout()
+        info_layout.addWidget(QtWidgets.QLabel(f"<b>{emp['full_name']}</b>"))
+        info_layout.addWidget(QtWidgets.QLabel(f"Должность: {emp['profession']}"))
+        info_layout.addWidget(QtWidgets.QLabel(f"Шанс на увольнение: {emp['fire_chance']}%"))
+        h_layout.addLayout(info_layout)
+
+        button_layout = QtWidgets.QVBoxLayout()
+        fire_btn = self.create_button("Уволить", "#ff4d4f")
+        motivate_btn = self.create_button("Мотивировать", "#4CAF50")
+        fire_btn.clicked.connect(lambda: self.fire_employee(emp['id']))
+        motivate_btn.clicked.connect(lambda: self.motivate_employee(emp['id']))
+        button_layout.addWidget(fire_btn)
+        button_layout.addWidget(motivate_btn)
+        h_layout.addLayout(button_layout)
+
+        self.card_layout.addWidget(card)
+
+    def fire_employee(self, employee_id):
+        # Пример простого удаления
+        conn = pymysql.connect(
+            host="localhost",
+            user="root",
+            password="",
+            database="diplom",
+            port=3312
+        )
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute("UPDATE employees SET is_active = 0 WHERE id = %s", (employee_id,))
+                cursor.execute("INSERT INTO firings (employee_id, reason, fired_by) VALUES (%s, %s, %s)",
+                               (employee_id, "Уволен вручную", self.current_user_id))
+                conn.commit()
+        self.load_employees()
+
+    def motivate_employee(self, employee_id):
+        QtWidgets.QMessageBox.information(self, "Мотивация", f"Вы успешно замотивировали сотрудника ID {employee_id}.")
+
+    def clear_layout(self, layout):
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
 
 
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
-    window = QtWidgets.QMainWindow()
-    ui = Ui_EmployeeWindow()
-    ui.setupUi(window)
-    window.show()
+    ui = EmployeeCardWindow(current_user_id=1)
+    ui.show()
     sys.exit(app.exec())
