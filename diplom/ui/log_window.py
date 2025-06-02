@@ -142,6 +142,7 @@ class LogWindow(QtWidgets.QMainWindow):
                 self.apply_filters()
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Ошибка", f"Ошибка загрузки: {str(e)}")
+            print(e)
         finally:
             connection.close()
 
@@ -153,7 +154,7 @@ class LogWindow(QtWidgets.QMainWindow):
 
         for log in self.all_logs:
             if search_text:
-                if (search_text not in (log["username"] or "").lower() and
+                if (search_text not in (log["login"] or "").lower() and
                         search_text not in (log["description"] or "").lower()):
                     continue
 
@@ -172,7 +173,7 @@ class LogWindow(QtWidgets.QMainWindow):
             self.table.insertRow(row_idx)
             created_at = log["created_at"].strftime("%d.%m.%Y %H:%M")
             self.table.setItem(row_idx, 0, QtWidgets.QTableWidgetItem(created_at))
-            self.table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(log["username"] or "Система"))
+            self.table.setItem(row_idx, 1, QtWidgets.QTableWidgetItem(log["login"] or "Система"))
             self.table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(log["action"]))
             self.table.setItem(row_idx, 3, QtWidgets.QTableWidgetItem(log["description"] or "-"))
 
