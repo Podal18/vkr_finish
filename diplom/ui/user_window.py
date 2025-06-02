@@ -45,8 +45,8 @@ class EmployeeWindow(QtWidgets.QMainWindow):
         # Таблица
         self.table = QtWidgets.QTableWidget(self.background)
         self.table.setGeometry(30, 80, 940, 440)
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["ФИО", "Должность", "Дата рождения", "Статус"])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["ФИО", "Должность", "Статус"])
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setStyleSheet("""
@@ -68,15 +68,14 @@ class EmployeeWindow(QtWidgets.QMainWindow):
         connection = get_connection()
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT full_name, profession, birth_date, is_active FROM employees")
+                cursor.execute("SELECT full_name, profession, is_active FROM employees")
                 employees = cursor.fetchall()
                 self.table.setRowCount(len(employees))
                 for row, emp in enumerate(employees):
                     self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(emp["full_name"]))
                     self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(emp["profession"] or "—"))
-                    self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(emp["birth_date"].strftime("%d.%m.%Y")))
                     status_text = "Активен" if emp["is_active"] else "Неактивен"
-                    self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(status_text))
+                    self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(status_text))
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Ошибка", f"Ошибка загрузки: {str(e)}")
         finally:
