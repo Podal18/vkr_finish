@@ -129,8 +129,8 @@ class Ui_AdminMainWindow(object):
         self.user_ui.show()
 
     def open_logo_window(self):
-        from ui.log_window import Ui_LogWindow
-        self.ui_log = Ui_LogWindow()
+        from ui.log_window import LogWindow
+        self.ui_log = LogWindow()
         self.ui_log.show()
 
 
